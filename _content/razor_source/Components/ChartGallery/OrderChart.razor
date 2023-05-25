@@ -9,7 +9,7 @@
                      Items="orders"
                      Name="Gross Value"
                      SeriesType=PointType
-                     XValue="@(e => e.DiscountPrecentage)"
+                     XValue="@(e => e.DiscountPercentage)"
                      YValue="@(e => e.GrossValue)"
                      OrderByDescending="e=>e.X" />
 
@@ -17,7 +17,7 @@
                      Items="orders"
                      SeriesType=PointType
                      Name="Net Value"
-                     XValue="@(e => e.DiscountPrecentage)"
+                     XValue="@(e => e.DiscountPercentage)"
                      YValue="@(e => e.NetValue)"
                      OrderByDescending="e=>e.X" />
     }
@@ -29,12 +29,20 @@
                      SeriesType=PointType
                      Name="Gross Value"
                      XValue="@(e => e.Country)"
-                     YAggregate="@(e => decimal.Round(e.Average(e => e.DiscountPrecentage)))"
+                     YAggregate="@(e => decimal.Round(e.Average(e => e.DiscountPercentage)))"
                      OrderByDescending="e=>e.Y" />
 
 
     }
-
+    else if (PointType == SeriesType.RangeArea)
+    {
+        <ApexRangeAreaSeries TItem="Order"
+                     Items="orders"
+                     Name="Min/Max Values"
+                     XValue="@(e => e.OrderDate.DateTime)"
+                     Top="@(e => e.DiscountPercentage + (e.DiscountPercentage * ((decimal)0.8)))"
+                     Bottom="@(e => e.DiscountPercentage)" />
+    }
     else if (IsXYChart())
     {
         <ApexPointSeries TItem="Order"

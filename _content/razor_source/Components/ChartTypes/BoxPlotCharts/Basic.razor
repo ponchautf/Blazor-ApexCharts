@@ -1,13 +1,19 @@
 ﻿<DemoContainer>
-    <ApexChart TItem="SupportIncident">
-        <ApexBoxPlotSeries TItem="SupportIncident"
-                    Items="incidents.OrderBy(e=>e.WeekNumber)"
+    <ApexChart TItem="BoxPlotSample" Debug>
+       
+        <ApexBoxPlotSeries TItem="BoxPlotSample"
+                    Items="incidents"
                     Name="incidents"
-                    XValue="@(e => e.WeekName)"
-                    YValue="@(e => e.Severity)" />
+                    XValue="@(e => e.Name)"
+                    Max="@(e => e.Max)"
+                    Min="@(e => e.Min)"
+                    Quantile1="@(e => e.Q1)"
+                    Quantile3="@(e => e.Q3)"
+                    Median="@(e => e.Median)"
+                    />
     </ApexChart>
 </DemoContainer>
 
 @code {
-    private List<SupportIncident> incidents { get; set; } = SampleData.GetSupportIncidents(30,60);
-    }
+    private List<BoxPlotSample> incidents { get; set; } = SampleData.GetBoxPlotData();
+}

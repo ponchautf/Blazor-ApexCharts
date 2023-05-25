@@ -1,23 +1,18 @@
 ﻿window.blazor_apexchart = {
 
-    testUnmarshalled(id, series, animate) {
-        var chartAnimate = (BINDING.conv_string(animate).toLowerCase() === 'true');
-        this.updateSeries(BINDING.conv_string(id), BINDING.conv_string(series), chartAnimate);
-    },
-
     getYAxisLabel(value, index, w) {
 
-        if (window.wasmBinaryFile === undefined) {
+        if (window.wasmBinaryFile === undefined && window.WebAssembly === undefined) {
             console.warn("YAxis labels is only supported in Blazor WASM");
             return value;
         }
 
         if (w !== undefined) {
-            return w.config.dotNetObject.invokeMethod('GetFormattedYAxisValue', value);
+            return w.config.dotNetObject.invokeMethod('JSGetFormattedYAxisValue', value);
         };
 
         if (index !== undefined) {
-            return index.w.config.dotNetObject.invokeMethod('GetFormattedYAxisValue', value);
+            return index.w.config.dotNetObject.invokeMethod('JSGetFormattedYAxisValue', value);
         }
 
         return value;
@@ -52,12 +47,19 @@
         }
     },
 
-    updateOptions(id, options, redrawPaths, animate, updateSyncedCharts) {
-        var data = JSON.parse(options);
+    updateOptions(id, options, redrawPaths, animate, updateSyncedCharts, zoom) {
+        var data = JSON.parse(options, (key, value) =>
+            (key === 'formatter' || key === 'dateFormatter' || key === 'custom') && value.length !== 0 ? eval("(" + value + ")") : value
+        );
         var chart = this.findChart(id);
         if (chart !== undefined) {
             this.LogMethodCall(chart, "updateOptions", options);
             chart.updateOptions(data, redrawPaths, animate, updateSyncedCharts);
+
+            if (zoom !== null) {
+                chart.zoomX(zoom.start, zoom.end);
+            }
+
         }
     },
 
@@ -192,7 +194,7 @@
         }
 
         var options = JSON.parse(options, (key, value) =>
-            (key === 'formatter' || key === 'custom') && value.length !== 0 ? eval("(" + value + ")") : value
+            (key === 'formatter' || key === 'tooltipHoverFormatter' || key === 'dateFormatter' || key === 'custom') && value.length !== 0 ? eval("(" + value + ")") : value
         );
 
         if (options.debug == true) {
@@ -202,33 +204,90 @@
         options.dotNetObject = dotNetObject;
 
 
-        options.chart.events = {
-            dataPointSelection: (event, chartContext, config) => {
+        options.chart.events = {};
 
-                if (chartContext.opts.hasDataPointSelection === false) {
-                    return;
+        if (options.hasDataPointLeave === true) {
+            options.chart.events.dataPointMouseLeave = function (event, chartContext, config) {
+                var selection = {
+                    dataPointIndex: config.dataPointIndex,
+                    seriesIndex: config.seriesIndex
                 }
+                dotNetObject.invokeMethodAsync('JSDataPointLeave', selection);
+            }
+        };
+
+        if (options.hasDataPointEnter === true) {
+            options.chart.events.dataPointMouseEnter = function (event, chartContext, config) {
+                var selection = {
+                    dataPointIndex: config.dataPointIndex,
+                    seriesIndex: config.seriesIndex
+                }
+                dotNetObject.invokeMethodAsync('JSDataPointEnter', selection);
+            }
+        };
+
+
+        if (options.hasDataPointSelection === true) {
+            options.chart.events.dataPointSelection = function (event, chartContext, config) {
                 var selection = {
                     dataPointIndex: config.dataPointIndex,
                     seriesIndex: config.seriesIndex,
                     selectedDataPoints: config.selectedDataPoints
                 }
-                dotNetObject.invokeMethodAsync('DataPointSelected', selection);
-            },
+                dotNetObject.invokeMethodAsync('JSDataPointSelected', selection);
+            }
+        };
 
-            legendClick: (chartContext, seriesIndex, config) => {
-                if (chartContext.opts.hasLegendClick === false) {
-                    return;
+        if (options.hasMarkerClick === true) {
+            options.chart.events.markerClick = function (event, chartContext, config) {
+                var selection = {
+                    dataPointIndex: config.dataPointIndex,
+                    seriesIndex: config.seriesIndex,
+                    selectedDataPoints: config.selectedDataPoints
                 }
-                var legendClick = {
+                dotNetObject.invokeMethodAsync('JSMarkerClick', selection);
+            }
+        };
 
+        if (options.hasXAxisLabelClick === true) {
+            options.chart.events.xAxisLabelClick = function (event, chartContext, config) {
+                var data = {
+                    labelIndex: config.labelIndex,
+                    caption: event.target.innerHTML
+                };
+                dotNetObject.invokeMethodAsync('JSXAxisLabelClick', data);
+            }
+        };
+
+       
+        if (options.hasLegendClick === true) {
+            options.chart.events.legendClick = function (chartContext, seriesIndex, config) {
+                var legendClick = {
                     seriesIndex: seriesIndex,
                     collapsed: config.globals.collapsedSeriesIndices.indexOf(seriesIndex) !== -1
                 }
 
-                dotNetObject.invokeMethodAsync('LegendClicked', legendClick);
+                dotNetObject.invokeMethodAsync('JSLegendClicked', legendClick);
             }
-        }
+        };
+
+        if (options.hasSelection === true) {
+            options.chart.events.selection = function (chartContext, config) {
+                dotNetObject.invokeMethodAsync('JSSelected', config);
+            };
+        };
+
+        if (options.hasBrushScrolled === true) {
+            options.chart.events.brushScrolled = function (chartContext, config) {
+                dotNetObject.invokeMethodAsync('JSBrushScrolled', config);
+            };
+        };
+
+        if (options.hasZoomed === true) {
+            options.chart.events.zoomed = function (chartContext, config) {
+                dotNetObject.invokeMethodAsync('JSZoomed', config);
+            };
+        };
 
         //Always destry chart if it exists
         this.destroyChart(options.chart.id);
